@@ -1,0 +1,29 @@
+- name: Pre-configure postfix
+  command: |
+  debconf-set-selections <<< "postfix postfix/main_mailer_type string 'Local Only'"
+
+- name: Install postfix
+  apt:
+    name: postfix
+    state: latest
+
+- name: Copy postfix configuration
+  copy:
+    src: "{{ role_path }}/main.cf"
+    dest: /etc/postfix/main.cf
+    mode: 0644
+
+- name: Configure SES SMTP
+  command: sudo postconf -e "relayhost = [email-smtp.us-east-1.amazonaws.com]:587" \
+  "smtp_sasl_auth_enable = yes" \
+  "smtp_sasl_security_options = noanonymous" \
+  "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd" \
+  "smtp_use_tls = yes" \
+  "smtp_tls_security_level = encrypt" \
+  "smtp_tls_note_starttls_offer = yes"
+
+- name: Create /etc/postfix/sasl_passwd file
+  file:
+    path: "/etc/postfix/sasl_passwd"
+    state: touch
+    content: [email-smtp.us-east-1.amazonaws.com]:587 abc:123

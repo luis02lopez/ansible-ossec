@@ -1,0 +1,6 @@
+packages:
+  - curl
+  - wget
+  - vim
+  - htop
+  - nmap
