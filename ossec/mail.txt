@@ -1,0 +1,4 @@
+From: Sender Name <sender@mail.com>
+Subject: Amazon SES Test
+This message was sent using Amazon SES.
+.
