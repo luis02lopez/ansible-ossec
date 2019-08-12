@@ -1,6 +1,7 @@
 - name: Pre-configure postfix
   command: |
-  debconf-set-selections <<< "postfix postfix/main_mailer_type string 'Local Only'"
+    sudo debconf-set-selections <<< "postfix postfix/mailname string your.hostname.com"
+    sudo debconf-set-selections <<< "postfix postfix/main_mailer_type string 'Local Only'"
 
 - name: Install postfix
   apt:
@@ -11,19 +12,48 @@
   copy:
     src: "{{ role_path }}/main.cf"
     dest: /etc/postfix/main.cf
-    mode: 0644
+    mode: 0600
 
 - name: Configure SES SMTP
-  command: sudo postconf -e "relayhost = [email-smtp.us-east-1.amazonaws.com]:587" \
-  "smtp_sasl_auth_enable = yes" \
-  "smtp_sasl_security_options = noanonymous" \
-  "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd" \
-  "smtp_use_tls = yes" \
-  "smtp_tls_security_level = encrypt" \
-  "smtp_tls_note_starttls_offer = yes"
+  command: > 
+    sudo postconf -e "relayhost = [email-smtp.us-east-1.amazonaws.com]:587" \
+    "smtp_sasl_auth_enable = yes" \
+    "smtp_sasl_security_options = noanonymous" \
+    "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd" \
+    "smtp_use_tls = yes" \
+    "smtp_tls_security_level = encrypt" \
+    "smtp_tls_note_starttls_offer = yes"
 
 - name: Create /etc/postfix/sasl_passwd file
-  file:
-    path: "/etc/postfix/sasl_passwd"
-    state: touch
-    content: [email-smtp.us-east-1.amazonaws.com]:587 abc:123
+  copy:
+    dest: "/etc/postfix/sasl_passwd"
+    content: '[email-smtp.us-east-1.amazonaws.com]:587 smtp_user:smtp_password'
+    mode: 0600
+
+- name: Hashmap containing SMTP credentials
+  command: sudo postmap hash:/etc/postfix/sasl_passwd
+
+- name: Start service postfix
+  service:
+    name: postfix
+    state: started
+
+- name: Reload service postfix
+  service:
+    name: postfix
+    state: reloaded
+
+- name: Testing SES
+  block:
+  - name: Installing Sendmail
+    apt:
+      name: sendmail
+      update_cache: yes
+      
+  - name: Constructing mail body
+    copy:
+      src: "{{ role_path }}/mail.txt"
+      dest: "/home/ubuntu/mail.txt"
+
+  - name: Sending mail
+    shell: sendmail -f sender@mail.com receiver@mail.com < mail.txt
